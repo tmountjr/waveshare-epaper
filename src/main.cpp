@@ -9,6 +9,12 @@
 // 0x0000 = black
 // 0xFFFF = white
 
+// Define dynamic areas.
+uint16_t dateCursorX, dateCursorY;
+uint16_t happeningNowRectX, happeningNowRectY;
+uint16_t upNextRectX, upNextRectY;
+uint16_t eventRectWidth, eventRectHeight;
+
 void setup()
 {
   Serial.begin(115200);
@@ -31,11 +37,9 @@ void setup()
     int today_is_x = display.getCursorX();
     // The (x,y) cursor is at the bottom left of where the next bit of text would appear.
     // X is correct but Y needs to set to -boundY + 5
-    display.drawRect(today_is_x, 5, display.width() - today_is_x - 1, boundH, 0x0000);
-
-    // Testing
-    // display.setCursor(today_is_x, -boundY + 5);
-    // display.print("06/03/2023");
+    // display.drawRect(today_is_x, 5, display.width() - today_is_x - 1, boundH, 0x0000);
+    dateCursorX = today_is_x;
+    dateCursorY = -boundY + 5;
 
     int16_t line_y = 25;
     int16_t line_x = (display.width() / 2) - 1;
@@ -77,19 +81,20 @@ void setup()
      *   * width (136) is calculated as...display.width() [296] / 2 [148] - 10 [2x padding, 138] - 1 [extra line, 137] - 1 [algebra, 136]
      *   * height (68) is calculated as...display.height() [128] - (cursor_y + 10) [55, so 73] - 5 [bottom padding, 68]
      */
-    int16_t rect_width = (display.width() / 2) - 12;
-    int16_t rect_height = display.height() - (cursor_y + 10) - 5;
-    int16_t right_rect_x = (display.width() / 2) + 7;
-    display.drawRect(5, cursor_y + 10, rect_width, rect_height, 0x0000);  // left rectangle
-    display.drawRect(right_rect_x, cursor_y + 10, rect_width, rect_height, 0x0000); // right rectangle
-    
-
-    // TODO: remove date and add in box outlining date area
+    // int16_t rect_width = (display.width() / 2) - 12;
+    // int16_t rect_height = display.height() - (cursor_y + 10) - 5;
+    // int16_t right_rect_x = (display.width() / 2) + 7;
+    // display.drawRect(5, cursor_y + 10, rect_width, rect_height, 0x0000);  // left rectangle
+    // display.drawRect(right_rect_x, cursor_y + 10, rect_width, rect_height, 0x0000); // right rectangle
+    happeningNowRectX = 5;
+    happeningNowRectY = cursor_y + 10;
+    upNextRectX = (display.width() / 2) + 7;
+    upNextRectY = cursor_y + 10;
+    eventRectWidth = (display.width() / 2) - 12;
+    eventRectHeight = display.height() - (cursor_y + 10) - 5;
   } while (display.nextPage());
 
 }
-
-
 
 void loop()
 {
