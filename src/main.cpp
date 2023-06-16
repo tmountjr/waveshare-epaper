@@ -1,19 +1,31 @@
 #include <Arduino.h>
+#include <WiFiUdp.h>
+#include <TimeLib.h>
 #include <GxEPD2_BW.h>
+#include <WiFiClient.h>
+#include <ArduinoJson.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
 #include <Fonts/FreeSans9pt7b.h>
 #include <Fonts/FreeSansBold9pt7b.h>
-#include <Fonts/FreeSans12pt7b.h>
-#include <Fonts/FreeSansBold12pt7b.h>
 #include "GxEPD2_display_selection_new_style.h"
+
+HTTPClient http;
+WiFiClient client;
+
+#include "secrets.h"
+#include "system_time.h"
 
 // 0x0000 = black
 // 0xFFFF = white
 
 // Define dynamic areas.
-uint16_t dateCursorX, dateCursorY;
+uint16_t dateCursorX, dateCursorY, dateWidth, dateHeight;
 uint16_t happeningNowRectX, happeningNowRectY;
 uint16_t upNextRectX, upNextRectY;
 uint16_t eventRectWidth, eventRectHeight;
+time_t nextScreenUpdate = 0;
+GFXcanvas1 event(eventRectWidth, eventRectHeight);
 
 void setup()
 {
@@ -22,8 +34,21 @@ void setup()
   display.setRotation(1);
   display.setTextColor(0x0000);
   display.firstPage();
+
+  Serial.print("\nStarting wifi");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.print('.');
+    delay(1000);
+  }
+  String localIp = WiFi.localIP().toString();
+  Serial.printf(" complete. IP Address: %s\n", localIp.c_str());
+
+  setSyncProvider(&getApiTime);
+
+  // Bootstrap the static part of the screen
   do {
-    // Just write out shit hardcoded for now
     display.fillScreen(0xFFFF);
     display.setFont(&FreeSans9pt7b);
     int16_t boundX, boundY;
@@ -40,7 +65,10 @@ void setup()
     // display.drawRect(today_is_x, 5, display.width() - today_is_x - 1, boundH, 0x0000);
     dateCursorX = today_is_x;
     dateCursorY = -boundY + 5;
+    dateWidth = display.width() - today_is_x - 1;
+    dateHeight = boundH;
 
+    // Draw a 3px horizontal line and a 3px vertical line
     int16_t line_y = 25;
     int16_t line_x = (display.width() / 2) - 1;
     for (int i = 0; i < 3; i++)
@@ -81,22 +109,63 @@ void setup()
      *   * width (136) is calculated as...display.width() [296] / 2 [148] - 10 [2x padding, 138] - 1 [extra line, 137] - 1 [algebra, 136]
      *   * height (68) is calculated as...display.height() [128] - (cursor_y + 10) [55, so 73] - 5 [bottom padding, 68]
      */
-    // int16_t rect_width = (display.width() / 2) - 12;
-    // int16_t rect_height = display.height() - (cursor_y + 10) - 5;
-    // int16_t right_rect_x = (display.width() / 2) + 7;
-    // display.drawRect(5, cursor_y + 10, rect_width, rect_height, 0x0000);  // left rectangle
-    // display.drawRect(right_rect_x, cursor_y + 10, rect_width, rect_height, 0x0000); // right rectangle
     happeningNowRectX = 5;
-    happeningNowRectY = cursor_y + 10;
+    happeningNowRectY = cursor_y + 12;
     upNextRectX = (display.width() / 2) + 7;
     upNextRectY = cursor_y + 10;
     eventRectWidth = (display.width() / 2) - 12;
     eventRectHeight = display.height() - (cursor_y + 10) - 5;
   } while (display.nextPage());
 
+  Serial.printf("Y advance: %d\n", FreeSans9pt7b.yAdvance);
 }
 
 void loop()
 {
+  time_t rightNow = now(); // This will handle updating the NTP client every 5m by default
+  if (rightNow >= nextScreenUpdate)
+  {
+    char date[11];
+    sprintf(date, "%02d/%02d/%04d", month(), day(), year());
+    display.setCursor(dateCursorX, dateCursorY);
+    display.setFont(&FreeSans9pt7b);
 
+    // Set Date
+    display.setPartialWindow(dateCursorX, 0, dateWidth, dateHeight);
+    display.firstPage();
+    do {
+      display.fillScreen(0xFFFF);
+      display.print(date);
+    } while (display.nextPage());
+
+    // Show "Happening Now"
+    display.setPartialWindow(happeningNowRectX, happeningNowRectY, eventRectWidth, eventRectHeight);
+    display.firstPage();
+    do {
+      display.fillScreen(0xFFFF);
+      display.setCursor(happeningNowRectX, happeningNowRectY + 12); // magic number, i happen to know the bounding box for this font is -12
+      display.println("11a-12p");
+      // Gotta reset the cursor now that we've moved to a new line
+      uint16_t new_y = display.getCursorY();
+      display.setCursor(happeningNowRectX, new_y);
+      display.println("V7 Discussion with SE and Product");
+    } while (display.nextPage());
+
+    // Show "Up Next"
+    display.setPartialWindow(upNextRectX, upNextRectY, eventRectWidth, eventRectHeight);
+    display.firstPage();
+    do {
+      display.fillScreen(0xFFFF);
+      display.setCursor(upNextRectX, upNextRectY + 12);
+      display.println("12p-1p");
+      uint16_t new_y = display.getCursorY();
+      display.setCursor(upNextRectX, new_y);
+      display.println("Lunch");
+    } while (display.nextPage());
+
+    // At the end, get a new now() and set a 5m update window
+    nextScreenUpdate = now() + 300;
+    Serial.printf("Next update at %lli\n", nextScreenUpdate);
+    display.hibernate();
+  }
 }
