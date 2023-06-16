@@ -24,6 +24,7 @@ uint16_t dateCursorX, dateCursorY, dateWidth, dateHeight;
 uint16_t happeningNowRectX, happeningNowRectY;
 uint16_t upNextRectX, upNextRectY;
 uint16_t eventRectWidth, eventRectHeight;
+int16_t fontBoundY, fontBoundYWithPadding;
 time_t nextScreenUpdate = 0;
 GFXcanvas1 event(eventRectWidth, eventRectHeight);
 
@@ -56,6 +57,9 @@ void setup()
 
     char TodayIs[] = "Today is ";
     display.getTextBounds(TodayIs, 0, 0, &boundX, &boundY, &boundW, &boundH);
+    // Save these values for later - we'll need them on the events areas.
+    fontBoundY = -boundY;
+    fontBoundYWithPadding = fontBoundY + 5;
 
     display.setCursor(0, -boundY + 5);
     display.print(TodayIs);
@@ -112,7 +116,7 @@ void setup()
     happeningNowRectX = 5;
     happeningNowRectY = cursor_y + 12;
     upNextRectX = (display.width() / 2) + 7;
-    upNextRectY = cursor_y + 10;
+    upNextRectY = cursor_y + 12;
     eventRectWidth = (display.width() / 2) - 12;
     eventRectHeight = display.height() - (cursor_y + 10) - 5;
   } while (display.nextPage());
@@ -143,7 +147,7 @@ void loop()
     display.firstPage();
     do {
       display.fillScreen(0xFFFF);
-      display.setCursor(happeningNowRectX, happeningNowRectY + 12); // magic number, i happen to know the bounding box for this font is -12
+      display.setCursor(happeningNowRectX, happeningNowRectY + fontBoundY);
       display.println("11a-12p");
       // Gotta reset the cursor now that we've moved to a new line
       uint16_t new_y = display.getCursorY();
@@ -156,7 +160,7 @@ void loop()
     display.firstPage();
     do {
       display.fillScreen(0xFFFF);
-      display.setCursor(upNextRectX, upNextRectY + 12);
+      display.setCursor(upNextRectX, upNextRectY + fontBoundY);
       display.println("12p-1p");
       uint16_t new_y = display.getCursorY();
       display.setCursor(upNextRectX, new_y);
