@@ -15,6 +15,7 @@ WiFiClient client;
 
 #include "secrets.h"
 #include "system_time.h"
+#include "events.h"
 
 // 0x0000 = black
 // 0xFFFF = white
@@ -26,7 +27,6 @@ uint16_t upNextRectX, upNextRectY;
 uint16_t eventRectWidth, eventRectHeight;
 int16_t fontBoundY, fontBoundYWithPadding;
 time_t nextScreenUpdate = 0;
-GFXcanvas1 event(eventRectWidth, eventRectHeight);
 
 void setup()
 {
@@ -120,8 +120,6 @@ void setup()
     eventRectWidth = (display.width() / 2) - 12;
     eventRectHeight = display.height() - (cursor_y + 10) - 5;
   } while (display.nextPage());
-
-  Serial.printf("Y advance: %d\n", FreeSans9pt7b.yAdvance);
 }
 
 void loop()
@@ -142,17 +140,33 @@ void loop()
       display.print(date);
     } while (display.nextPage());
 
+    // Fetch events
+    StaticJsonDocument<512> events;
+    get_events(&events);
+    JsonArray current = events["current"].as<JsonArray>();
+    JsonArray future = events["future"].as<JsonArray>();
+
+    char current_event_time[20];
+    char future_event_time[20];
+    char current_event_title[15];
+    char future_event_title[15];
+
+    JsonObject current_object = current[0].as<JsonObject>();
+    parseEvent(current_object, current_event_time, sizeof(current_event_time), current_event_title, sizeof(current_event_title));
+
+    JsonObject future_object = future[0].as<JsonObject>();
+    parseEvent(future_object, future_event_time, sizeof(future_event_time), future_event_title, sizeof(future_event_title));
+
     // Show "Happening Now"
     display.setPartialWindow(happeningNowRectX, happeningNowRectY, eventRectWidth, eventRectHeight);
     display.firstPage();
     do {
       display.fillScreen(0xFFFF);
       display.setCursor(happeningNowRectX, happeningNowRectY + fontBoundY);
-      display.println("11a-12p");
-      // Gotta reset the cursor now that we've moved to a new line
+      display.println(current_event_time);
       uint16_t new_y = display.getCursorY();
       display.setCursor(happeningNowRectX, new_y);
-      display.println("V7 Discussion with SE and Product");
+      display.println(current_event_title);
     } while (display.nextPage());
 
     // Show "Up Next"
@@ -161,10 +175,10 @@ void loop()
     do {
       display.fillScreen(0xFFFF);
       display.setCursor(upNextRectX, upNextRectY + fontBoundY);
-      display.println("12p-1p");
+      display.println(future_event_time);
       uint16_t new_y = display.getCursorY();
       display.setCursor(upNextRectX, new_y);
-      display.println("Lunch");
+      display.println(future_event_title);
     } while (display.nextPage());
 
     // At the end, get a new now() and set a 5m update window
