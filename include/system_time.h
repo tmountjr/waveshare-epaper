@@ -67,7 +67,7 @@ void assembleTimeSummary(time_t startTimestamp, time_t endTimestamp, char* summa
   breakTime(startTimestamp, startTm);
   breakTime(endTimestamp, endTm);
   char startTime[9], endTime[9];
-  sprintf(startTime, "%02d:%02d%c", startTm.Hour % 12, startTm.Minute, (startTm.Hour < 12) ? 'a' : 'p');
-  sprintf(endTime, "%02d:%02d%c", endTm.Hour % 12, endTm.Minute, (endTm.Hour < 12) ? 'a' : 'p');
+  sprintf(startTime, "%02d:%02d", startTm.Hour, startTm.Minute);
+  sprintf(endTime, "%02d:%02d", endTm.Hour, endTm.Minute);
   snprintf(summary, summarySize, "%s-%s", startTime, endTime);
 }

@@ -48,7 +48,6 @@ void parseEvent(
   }
   else
   {
-    // eventTitle = "";
     strcpy(eventTitle, "");
     snprintf(eventTime, eventTimeSize, "%s", ""); // Ensure null termination
   }

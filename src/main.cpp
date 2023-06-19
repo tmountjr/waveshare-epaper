@@ -192,15 +192,6 @@ void loop()
       display.println(future_event_title);
     } while (display.nextPage());
 
-    // Drop the battery indicator
-    display.firstPage();
-    do {
-      // Stick a battery indicator in the upper right corner, just use the full one for now
-      // it's 16x8, and give it a 1px padding from the edge
-      // TODO:this isn't working, try on a clean display.
-      display.drawBitmap(display.width() - 17, 1, BatteryFull, 16, 8, 0x0000, 0xFFFF);
-    } while (display.nextPage());
-
     // At the end, get a new now() and set a 5m update window
     nextScreenUpdate = now() + 300;
     Serial.printf("Next update at %lli\n", nextScreenUpdate);
