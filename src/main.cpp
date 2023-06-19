@@ -16,6 +16,7 @@ WiFiClient client;
 #include "secrets.h"
 #include "system_time.h"
 #include "events.h"
+#include "battery.h"
 
 // 0x0000 = black
 // 0xFFFF = white
@@ -26,6 +27,10 @@ uint16_t happeningNowRectX, happeningNowRectY;
 uint16_t upNextRectX, upNextRectY;
 uint16_t eventRectWidth, eventRectHeight;
 int16_t fontBoundY, fontBoundYWithPadding;
+uint16_t batteryX;
+uint16_t batteryY = 1;
+uint8_t batteryW = 16;
+uint8_t batteryH = 8;
 time_t nextScreenUpdate = 0;
 
 void setup()
@@ -35,6 +40,8 @@ void setup()
   display.setRotation(1);
   display.setTextColor(0x0000);
   display.firstPage();
+  // Have to set this after the display's been rotated
+  batteryX = display.width() - 16 - 1;
 
   Serial.print("\nStarting wifi");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -69,8 +76,12 @@ void setup()
     // display.drawRect(today_is_x, 5, display.width() - today_is_x - 1, boundH, 0x0000);
     dateCursorX = today_is_x;
     dateCursorY = -boundY + 5;
-    dateWidth = display.width() - today_is_x - 1;
+    dateWidth = display.width() - today_is_x - 1 - 20;  // give room for the battery
     dateHeight = boundH;
+
+    // Draw the battery - full for now, then in the loop we'll check the actual
+    // battery reading and adjust accordingly.
+    display.drawBitmap(batteryX, batteryY, BatteryFull, batteryW, batteryH, 0x0000);
 
     // Draw a 3px horizontal line and a 3px vertical line
     int16_t line_y = 25;
@@ -179,6 +190,15 @@ void loop()
       uint16_t new_y = display.getCursorY();
       display.setCursor(upNextRectX, new_y);
       display.println(future_event_title);
+    } while (display.nextPage());
+
+    // Drop the battery indicator
+    display.firstPage();
+    do {
+      // Stick a battery indicator in the upper right corner, just use the full one for now
+      // it's 16x8, and give it a 1px padding from the edge
+      // TODO:this isn't working, try on a clean display.
+      display.drawBitmap(display.width() - 17, 1, BatteryFull, 16, 8, 0x0000, 0xFFFF);
     } while (display.nextPage());
 
     // At the end, get a new now() and set a 5m update window
