@@ -111,7 +111,7 @@ void setup()
     // starting X point = three-quarter-point - (boundW / 2)
     uint16_t text_x = (display.width() * 0.75) - (boundW / 2);
     display.setCursor(text_x, 45);
-    display.print("Up Next:");
+    display.print(UpNext);
     
     int16_t cursor_y = display.getCursorY();
 
@@ -156,16 +156,8 @@ void loop()
       display.print(date);
     } while (display.nextPage());
 
-    char current_event_time[20];
-    char future_event_time[20];
-    char current_event_title[15];
-    char future_event_title[15];
-
     JsonObject current_object = current[0].as<JsonObject>();
-    parseEvent(current_object, current_event_time, sizeof(current_event_time), current_event_title, sizeof(current_event_title));
-
     JsonObject future_object = future[0].as<JsonObject>();
-    parseEvent(future_object, future_event_time, sizeof(future_event_time), future_event_title, sizeof(future_event_title));
 
     // Show "Happening Now"
     display.setPartialWindow(happeningNowRectX, happeningNowRectY, eventRectWidth, eventRectHeight);
@@ -173,10 +165,13 @@ void loop()
     do {
       display.fillScreen(0xFFFF);
       display.setCursor(happeningNowRectX, happeningNowRectY + fontBoundY);
-      display.println(current_event_time);
+      display.println(current_object["timeWindow"].as<const char*>());
       uint16_t new_y = display.getCursorY();
       display.setCursor(happeningNowRectX, new_y);
-      display.println(current_event_title);
+      display.println(current_object["summary_small"].as<const char*>());
+      new_y = display.getCursorY();
+      display.setCursor(happeningNowRectX, new_y);
+      display.println(current_object["meetingAudience"].as<const char *>());
     } while (display.nextPage());
 
     // Show "Up Next"
@@ -185,10 +180,13 @@ void loop()
     do {
       display.fillScreen(0xFFFF);
       display.setCursor(upNextRectX, upNextRectY + fontBoundY);
-      display.println(future_event_time);
+      display.println(future_object["timeWindow"].as<const char *>());
       uint16_t new_y = display.getCursorY();
       display.setCursor(upNextRectX, new_y);
-      display.println(future_event_title);
+      display.println(future_object["summary_small"].as<const char *>());
+      new_y = display.getCursorY();
+      display.setCursor(upNextRectX, new_y);
+      display.println(future_object["meetingAudience"].as<const char*>());
     } while (display.nextPage());
 
     // At the end, get a new now() and set a 5m update window
