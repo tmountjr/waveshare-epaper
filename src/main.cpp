@@ -138,8 +138,13 @@ void loop()
   time_t rightNow = now(); // This will handle updating the NTP client every 5m by default
   if (rightNow >= nextScreenUpdate)
   {
-    char date[11];
-    sprintf(date, "%02d/%02d/%04d", month(), day(), year());
+    // Fetch events
+    StaticJsonDocument<768> events;
+    get_events(&events);
+    JsonArray current = events["current"].as<JsonArray>();
+    JsonArray future = events["future"].as<JsonArray>();
+    const char* date = events["formattedDate"];
+
     display.setCursor(dateCursorX, dateCursorY);
     display.setFont(&FreeSans9pt7b);
 
@@ -150,12 +155,6 @@ void loop()
       display.fillScreen(0xFFFF);
       display.print(date);
     } while (display.nextPage());
-
-    // Fetch events
-    StaticJsonDocument<512> events;
-    get_events(&events);
-    JsonArray current = events["current"].as<JsonArray>();
-    JsonArray future = events["future"].as<JsonArray>();
 
     char current_event_time[20];
     char future_event_time[20];

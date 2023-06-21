@@ -28,7 +28,6 @@ time_t getApiTime()
         }
         toReturn = unixtime + tz_offset;
         nextUpdateTime = toReturn - 1;
-        Serial.printf("Setting unix time to %i\n", (int)toReturn);
       }
     }
     http.end();
