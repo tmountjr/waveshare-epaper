@@ -35,3 +35,26 @@ const uint8_t BatteryLow[16] PROGMEM = {
   0b01000000, 0b00000001,
   0b00111111, 0b11111111,
 };
+
+// Wifi Disconnected
+const uint8_t Disconnected[8] PROGMEM = {
+  0b10000001,
+  0b01000011,
+  0b00100111,
+  0b00010111,
+  0b00011011,
+  0b00111101,
+  0b01111110,
+  0b11111111
+};
+
+const uint8_t Connected[8] PROGMEM = {
+  0b00000001,
+  0b00000011,
+  0b00000111,
+  0b00001111,
+  0b00011111,
+  0b00111111,
+  0b01111111,
+  0b11111111,
+};

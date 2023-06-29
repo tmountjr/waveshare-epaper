@@ -8,8 +8,8 @@
 #include <ESP8266HTTPClient.h>
 #include <Fonts/FreeSans9pt7b.h>
 #include <Fonts/FreeSansBold9pt7b.h>
+#include "icons.h"
 #include "secrets.h"
-#include "battery.h"
 
 HTTPClient http;
 WiFiClient client;
@@ -68,10 +68,12 @@ struct
   uint16_t upNextRectX, upNextRectY;
   uint16_t eventRectWidth, eventRectHeight;
   int16_t fontBoundY, fontBoundYWithPadding;
-  uint16_t batteryX;
-  uint16_t batteryY = 1;
+  uint16_t statusAreaX;
+  uint16_t statusAreaY = 1;
   uint8_t batteryW = 16;
   uint8_t batteryH = 8;
+  uint8_t wifiW = 8;
+  uint8_t wifiH = 8;
   time_t nextScreenUpdate = 0;
 } dimensions;
 
@@ -143,7 +145,7 @@ void setup()
       int today_is_x = display.getCursorX();
       dimensions.dateCursorX = today_is_x;
       dimensions.dateCursorY = -bY + 5;
-      dimensions.dateWidth = display.width() - today_is_x - 20; // give room for the battery
+      dimensions.dateWidth = display.width() - today_is_x - (dimensions.batteryW + 5 + dimensions.wifiW + 1); // give room for the battery
       dimensions.dateHeight = bH;
       // *** END TODAY IS ***
 
@@ -204,25 +206,6 @@ void setup()
     dimensions_calculated = true;
   }
 
-  // *** START BATTERY ***
-  dimensions.batteryX = display.width() - 16 - 1;
-  const uint8_t *BatteryIcon;
-  float battery_voltage = voltage();
-  float battery_percent = mapFloat(battery_voltage, 2.8, 4.2, 0, 100);
-  Serial.printf("Battery voltage: %.2f; percent: %.2f\n", battery_voltage, battery_percent);
-  
-  if (battery_percent >= 66) BatteryIcon = BatteryFull;
-  else if (battery_percent >= 33) BatteryIcon = BatteryMid;
-  else BatteryIcon = BatteryLow;
-
-  display.setPartialWindow(dimensions.batteryX, dimensions.batteryY, dimensions.batteryW, dimensions.batteryH);
-  display.firstPage();
-  do
-  {
-    display.drawBitmap(dimensions.batteryX, dimensions.batteryY, BatteryIcon, dimensions.batteryW, dimensions.batteryH, GxEPD_BLACK);
-  } while (display.nextPage());
-  // *** END BATTERY ***
-
   // Pull the boundary points if we haven't calculated them already.
   if (!dimensions_calculated)
   {
@@ -231,71 +214,116 @@ void setup()
 
   // Connect to the events API, download everything, and draw the updates on every single refresh.
   StaticJsonDocument<768> events;
-  get_events(&events);
+  bool get_event_succeeded = get_events(&events);
   JsonArray current = events["current"].as<JsonArray>();
   JsonArray future = events["future"].as<JsonArray>();
   const char *date = events["formattedDate"];
   JsonObject current_object = current[0].as<JsonObject>();
   JsonObject future_object = future[0].as<JsonObject>();
 
-  // *** START DATE PAINT ***
-  display.setPartialWindow(dimensions.dateCursorX, 0, dimensions.dateWidth, dimensions.dateHeight);
-  display.setFont(&FreeSans9pt7b);
+  // TODO: put a check in here to make sure we received data. That may mean changing
+  // get_events, or we could possibly check after that completes.
+  // Like pass it a ref to a bool, which is defaulted to FALSE, and then only switch
+  // it to TRUE if the call succeeded.
+
+  // *** START BATTERY AND WIFI ***
+  // "battery" is now more "status" - 8px + 5px + 16px = 29px wide, make it an even 30 for left space
+  dimensions.statusAreaX = display.width() - 30;
+  const uint8_t *BatteryIcon;
+  const uint8_t *WiFiIcon;
+  float battery_voltage = voltage();
+  float battery_percent = mapFloat(battery_voltage, 2.8, 4.2, 0, 100);
+  Serial.printf("Battery voltage: %.2f; percent: %.2f\n", battery_voltage, battery_percent);
+
+  // Choose the right battery icon
+  if (battery_percent >= 66)
+    BatteryIcon = BatteryFull;
+  else if (battery_percent >= 33)
+    BatteryIcon = BatteryMid;
+  else
+    BatteryIcon = BatteryLow;
+
+  // Choose the right wifi icon
+  if (get_event_succeeded) {
+    WiFiIcon = Connected;
+  } else {
+    WiFiIcon = Disconnected;
+  }
+
+  display.setPartialWindow(
+    dimensions.statusAreaX,
+    dimensions.statusAreaY,
+    dimensions.batteryW + 5 + dimensions.wifiW + 1,
+    dimensions.batteryH);
   display.firstPage();
   do
   {
-    // Turn the LED off while updating, just for a visual indication
-    digitalWrite(STARTUP_LED_PIN, HIGH);
-    display.fillScreen(GxEPD_WHITE);
-    display.setCursor(dimensions.dateCursorX, dimensions.dateCursorY);
-    display.print(date);
-    digitalWrite(STARTUP_LED_PIN, LOW);
+    display.drawBitmap(dimensions.statusAreaX + 1, dimensions.statusAreaY, WiFiIcon, dimensions.wifiW, dimensions.wifiH, GxEPD_BLACK);
+    display.drawBitmap(dimensions.statusAreaX + 1 + dimensions.wifiW + 5, dimensions.statusAreaY, BatteryIcon, dimensions.batteryW, dimensions.batteryH, GxEPD_BLACK);
   } while (display.nextPage());
-  // *** END DATE PAINT
+  // *** END BATTERY AND WIFI ***
 
-  // *** START HAPPENING NOW DATA ***
-  display.setPartialWindow(dimensions.happeningNowRectX, dimensions.happeningNowRectY, dimensions.eventRectWidth, dimensions.eventRectHeight);
-  display.firstPage();
-  do
-  {
-    // Turn the LED off while updating, just for a visual indication
-    digitalWrite(STARTUP_LED_PIN, HIGH);
-    display.fillScreen(GxEPD_WHITE);
-    display.setCursor(dimensions.happeningNowRectX, dimensions.happeningNowRectY + dimensions.fontBoundY);
-    display.println(current_object["timeWindow"].as<const char *>());
+  // Only draw the date if get_events was successful
+  if (get_event_succeeded) {
+    // *** START DATE PAINT ***
+    display.setPartialWindow(dimensions.dateCursorX, 0, dimensions.dateWidth, dimensions.dateHeight);
+    display.setFont(&FreeSans9pt7b);
+    display.firstPage();
+    do
+    {
+      // Turn the LED off while updating, just for a visual indication
+      digitalWrite(STARTUP_LED_PIN, HIGH);
+      display.fillScreen(GxEPD_WHITE);
+      display.setCursor(dimensions.dateCursorX, dimensions.dateCursorY);
+      display.print(date);
+      digitalWrite(STARTUP_LED_PIN, LOW);
+    } while (display.nextPage());
+    // *** END DATE PAINT
 
-    uint16_t new_y = display.getCursorY();
-    display.setCursor(dimensions.happeningNowRectX, new_y);
-    display.println(current_object["summary_small"].as<const char *>());
+    // *** START HAPPENING NOW DATA ***
+    display.setPartialWindow(dimensions.happeningNowRectX, dimensions.happeningNowRectY, dimensions.eventRectWidth, dimensions.eventRectHeight);
+    display.firstPage();
+    do
+    {
+      // Turn the LED off while updating, just for a visual indication
+      digitalWrite(STARTUP_LED_PIN, HIGH);
+      display.fillScreen(GxEPD_WHITE);
+      display.setCursor(dimensions.happeningNowRectX, dimensions.happeningNowRectY + dimensions.fontBoundY);
+      display.println(current_object["timeWindow"].as<const char *>());
 
-    new_y = display.getCursorY();
-    display.setCursor(dimensions.happeningNowRectX, new_y);
-    display.println(current_object["meetingAudience"].as<const char *>());
-    digitalWrite(STARTUP_LED_PIN, LOW);
-  } while (display.nextPage());
-  // *** END HAPPENING NOW DATA ***
+      uint16_t new_y = display.getCursorY();
+      display.setCursor(dimensions.happeningNowRectX, new_y);
+      display.println(current_object["summary_small"].as<const char *>());
 
-  // *** START UP NEXT DATA ***
-  display.setPartialWindow(dimensions.upNextRectX, dimensions.upNextRectY, dimensions.eventRectWidth, dimensions.eventRectHeight);
-  display.firstPage();
-  do
-  {
-    // Turn the LED off while updating, just for a visual indication
-    digitalWrite(STARTUP_LED_PIN, HIGH);
-    display.fillScreen(GxEPD_WHITE);
-    display.setCursor(dimensions.upNextRectX, dimensions.upNextRectY + dimensions.fontBoundY);
-    display.println(future_object["timeWindow"].as<const char *>());
+      new_y = display.getCursorY();
+      display.setCursor(dimensions.happeningNowRectX, new_y);
+      display.println(current_object["meetingAudience"].as<const char *>());
+      digitalWrite(STARTUP_LED_PIN, LOW);
+    } while (display.nextPage());
+    // *** END HAPPENING NOW DATA ***
 
-    uint16_t new_y = display.getCursorY();
-    display.setCursor(dimensions.upNextRectX, new_y);
-    display.println(future_object["summary_small"].as<const char *>());
+    // *** START UP NEXT DATA ***
+    display.setPartialWindow(dimensions.upNextRectX, dimensions.upNextRectY, dimensions.eventRectWidth, dimensions.eventRectHeight);
+    display.firstPage();
+    do
+    {
+      // Turn the LED off while updating, just for a visual indication
+      digitalWrite(STARTUP_LED_PIN, HIGH);
+      display.fillScreen(GxEPD_WHITE);
+      display.setCursor(dimensions.upNextRectX, dimensions.upNextRectY + dimensions.fontBoundY);
+      display.println(future_object["timeWindow"].as<const char *>());
 
-    new_y = display.getCursorY();
-    display.setCursor(dimensions.upNextRectX, new_y);
-    display.println(future_object["meetingAudience"].as<const char *>());
-    digitalWrite(STARTUP_LED_PIN, LOW);
-  } while (display.nextPage());
-  // *** END UP NEXT DATA ***
+      uint16_t new_y = display.getCursorY();
+      display.setCursor(dimensions.upNextRectX, new_y);
+      display.println(future_object["summary_small"].as<const char *>());
+
+      new_y = display.getCursorY();
+      display.setCursor(dimensions.upNextRectX, new_y);
+      display.println(future_object["meetingAudience"].as<const char *>());
+      digitalWrite(STARTUP_LED_PIN, LOW);
+    } while (display.nextPage());
+    // *** END UP NEXT DATA ***
+  }
 
   // Cleanup - hibernate the paper, then deep sleep the ESP
   // 1. increment startup counter, reset clean start flag, and push startup_data to user memory.
