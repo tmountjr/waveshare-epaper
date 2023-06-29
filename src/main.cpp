@@ -27,12 +27,12 @@ WiFiClient client;
 // D6 = GPIO 12 = BUSY  = purple
 //
 // OTHER PINS:
-// 1k pullup between 3V3 and RST
-// 100k * 2 voltage dividers between Vin and GND, going to A0
+// 1k pullup between 3V3 and RST to keep the screen from turning to garbage after waking up
+// 100k * 2 voltage dividers between Vin and GND, going to A0, to measure the input voltage
 // jumper between D0/GPIO16 and RST on the board to wake up on a timer
 
 #define BAT_PIN A0
-#define ADJUSTMENT 0.25
+#define ADJUSTMENT 0.25 // The difference between the read voltage and the voltage as measured by a multimeter
 #define STARTUP_LED_PIN D4
 
 /**
@@ -244,9 +244,12 @@ void setup()
   display.firstPage();
   do
   {
+    // Turn the LED off while updating, just for a visual indication
+    digitalWrite(STARTUP_LED_PIN, HIGH);
     display.fillScreen(GxEPD_WHITE);
     display.setCursor(dimensions.dateCursorX, dimensions.dateCursorY);
     display.print(date);
+    digitalWrite(STARTUP_LED_PIN, LOW);
   } while (display.nextPage());
   // *** END DATE PAINT
 
@@ -255,6 +258,8 @@ void setup()
   display.firstPage();
   do
   {
+    // Turn the LED off while updating, just for a visual indication
+    digitalWrite(STARTUP_LED_PIN, HIGH);
     display.fillScreen(GxEPD_WHITE);
     display.setCursor(dimensions.happeningNowRectX, dimensions.happeningNowRectY + dimensions.fontBoundY);
     display.println(current_object["timeWindow"].as<const char *>());
@@ -266,6 +271,7 @@ void setup()
     new_y = display.getCursorY();
     display.setCursor(dimensions.happeningNowRectX, new_y);
     display.println(current_object["meetingAudience"].as<const char *>());
+    digitalWrite(STARTUP_LED_PIN, LOW);
   } while (display.nextPage());
   // *** END HAPPENING NOW DATA ***
 
@@ -274,6 +280,8 @@ void setup()
   display.firstPage();
   do
   {
+    // Turn the LED off while updating, just for a visual indication
+    digitalWrite(STARTUP_LED_PIN, HIGH);
     display.fillScreen(GxEPD_WHITE);
     display.setCursor(dimensions.upNextRectX, dimensions.upNextRectY + dimensions.fontBoundY);
     display.println(future_object["timeWindow"].as<const char *>());
@@ -285,6 +293,7 @@ void setup()
     new_y = display.getCursorY();
     display.setCursor(dimensions.upNextRectX, new_y);
     display.println(future_object["meetingAudience"].as<const char *>());
+    digitalWrite(STARTUP_LED_PIN, LOW);
   } while (display.nextPage());
   // *** END UP NEXT DATA ***
 
