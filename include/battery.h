@@ -1,7 +1,7 @@
 #include <pgmspace.h>
 
 // FULL, >=66%
-const uint8_t BatteryFull[16] = {
+const uint8_t BatteryFull[16] PROGMEM = {
   0b00111111, 0b11111111,
   0b01000000, 0b00000001,
   0b10011101, 0b11011101,

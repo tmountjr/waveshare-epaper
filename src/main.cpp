@@ -16,9 +16,24 @@ WiFiClient client;
 
 #include "events.h"
 #include "GxEPD2_display_selection_new_style.h"
+// PINOUT:
+// 3V3          = VCC   = grey
+// GND          = GND   = brown
+// D7 = GPIO 13 = DIN   = blue
+// D5 = GPIO 14 = CLK   = yellow
+// D8 = GPIO 15 = CS    = orange
+// D2 = GPIO 4  = DC    = green
+// D1 = GPIO 5  = RST   = white
+// D6 = GPIO 12 = BUSY  = purple
+//
+// OTHER PINS:
+// 1k pullup between 3V3 and RST
+// 100k * 2 voltage dividers between Vin and GND, going to A0
+// jumper between D0/GPIO16 and RST on the board to wake up on a timer
 
 #define BAT_PIN A0
 #define ADJUSTMENT 0.25
+#define STARTUP_LED_PIN D4
 
 /**
  * Get the voltage from the onboard ADC. Returns the actual voltage.
@@ -42,8 +57,8 @@ struct
   bool clean_start;
 } startup_data;
 
-uint32_t sleep_interval = 300e6;                                      // 5 minutes
-uint16_t max_starts_between_refresh = 86400 / (sleep_interval / 1e6); // 24 hours
+uint32_t sleep_interval = 300e6;                                          // 5 minutes
+uint16_t max_starts_between_refresh = (60 * 60) / (sleep_interval / 1e6); // 1 hours
 
 // Define dynamic areas.
 struct
@@ -66,6 +81,11 @@ void setup()
 {
   pinMode(D0, WAKEUP_PULLUP);
   pinMode(BAT_PIN, INPUT);
+  pinMode(STARTUP_LED_PIN, OUTPUT);
+
+  // Turn on the ESP12E LED while we boot, bearing in mind it's reversed.
+  digitalWrite(STARTUP_LED_PIN, LOW);
+
   Serial.begin(74880);
   Serial.setTimeout(2000);
   while (!Serial)
@@ -186,22 +206,14 @@ void setup()
 
   // *** START BATTERY ***
   dimensions.batteryX = display.width() - 16 - 1;
-  uint8_t BatteryIcon[16]{};
+  const uint8_t *BatteryIcon;
   float battery_voltage = voltage();
   float battery_percent = mapFloat(battery_voltage, 2.8, 4.2, 0, 100);
   Serial.printf("Battery voltage: %.2f; percent: %.2f\n", battery_voltage, battery_percent);
-  if (battery_percent >= 66)
-  {
-    memcpy(BatteryIcon, BatteryFull, sizeof(BatteryFull));
-  }
-  else if (battery_percent >= 33)
-  {
-    memcpy(BatteryIcon, BatteryMid, sizeof(BatteryMid));
-  }
-  else
-  {
-    memcpy(BatteryIcon, BatteryLow, sizeof(BatteryLow));
-  }
+  
+  if (battery_percent >= 66) BatteryIcon = BatteryFull;
+  else if (battery_percent >= 33) BatteryIcon = BatteryMid;
+  else BatteryIcon = BatteryLow;
 
   display.setPartialWindow(dimensions.batteryX, dimensions.batteryY, dimensions.batteryW, dimensions.batteryH);
   display.firstPage();
@@ -284,6 +296,9 @@ void setup()
 
   // 2. hibernate the epaper
   display.hibernate();
+
+  // 2.5 turn off the LED (though it should get pulled low when sleep starts?)
+  digitalWrite(STARTUP_LED_PIN, HIGH);
 
   // 3. give the mcu a second to finish cleaning up, then deep sleep.
   delay(1000);
