@@ -7,10 +7,13 @@
 #include <ESP8266HTTPClient.h>
 #include <Fonts/FreeSans9pt7b.h>
 #include <Fonts/FreeSansBold9pt7b.h>
+#include "secrets.h"
+#include "battery.h"
+
+HTTPClient http;
+WiFiClient client;
 
 #include "events.h"
-#include "battery.h"
-#include "secrets.h"
 #include "GxEPD2_display_selection_new_style.h"
 
 struct
@@ -21,9 +24,6 @@ struct
 
 uint32_t sleep_interval = 300e6;                                      // 5 minutes
 uint16_t max_starts_between_refresh = 86400 / (sleep_interval / 1e6); // 24 hours
-
-HTTPClient http;
-WiFiClient client;
 
 // Define dynamic areas.
 struct
@@ -77,6 +77,7 @@ void setup()
   display.init(74880, startup_data.clean_start, 2, false);
   display.setRotation(1);
   display.setFont(&FreeSans9pt7b);
+  display.setTextColor(GxEPD_BLACK);
 
   if (startup_data.clean_start)
   {
@@ -92,7 +93,7 @@ void setup()
       // *** START TODAY IS ***
       char TodayIs[] = "Today is ";
       display.getTextBounds(TodayIs, 0, 0, &bX, &bY, &bW, &bH);
-      display.setCursor(0, -bY + 5);
+      display.setCursor(bX, -bY + 5);
       display.print(TodayIs);
 
       // Get some dimensions
@@ -183,10 +184,12 @@ void setup()
 
   // *** START DATE PAINT ***
   display.setPartialWindow(dimensions.dateCursorX, 0, dimensions.dateWidth, dimensions.dateHeight);
+  display.setFont(&FreeSans9pt7b);
   display.firstPage();
   do
   {
     display.fillScreen(GxEPD_WHITE);
+    display.setCursor(dimensions.dateCursorX, dimensions.dateCursorY);
     display.print(date);
   } while (display.nextPage());
   // *** END DATE PAINT
