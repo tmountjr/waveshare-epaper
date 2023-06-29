@@ -1,3 +1,4 @@
+#include <string.h>
 #include <Arduino.h>
 #include <GxEPD2_BW.h>
 #include <WiFiClient.h>
@@ -15,6 +16,25 @@ WiFiClient client;
 
 #include "events.h"
 #include "GxEPD2_display_selection_new_style.h"
+
+#define BAT_PIN A0
+#define ADJUSTMENT 0.25
+
+/**
+ * Get the voltage from the onboard ADC. Returns the actual voltage.
+ */
+float voltage()
+{
+  return (((analogRead(BAT_PIN) * 3.3) / 1024) * 2) + ADJUSTMENT;
+}
+
+/**
+ * Equivalent of Arduino map() function but for floats.
+ */
+float mapFloat(float x, float in_min, float in_max, float out_min, float out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
 
 struct
 {
@@ -45,6 +65,7 @@ bool dimensions_calculated = false;
 void setup()
 {
   pinMode(D0, WAKEUP_PULLUP);
+  pinMode(BAT_PIN, INPUT);
   Serial.begin(74880);
   Serial.setTimeout(2000);
   while (!Serial)
@@ -106,10 +127,6 @@ void setup()
       dimensions.dateHeight = bH;
       // *** END TODAY IS ***
 
-      // *** START BATTERY ***
-      display.drawBitmap(dimensions.batteryX, dimensions.batteryY, BatteryFull, dimensions.batteryW, dimensions.batteryH, GxEPD_BLACK);
-      // *** END BATTERY ***
-
       // *** START HORIZONTAL/VERTICAL LINES ***
       int16_t line_y = 25, line_x = (display.width() / 2) - 1;
       for (int i = 0; i < 3; i++)
@@ -166,6 +183,33 @@ void setup()
     ESP.rtcUserMemoryWrite(sizeof(startup_data), reinterpret_cast<uint32_t *>(&dimensions), sizeof(dimensions));
     dimensions_calculated = true;
   }
+
+  // *** START BATTERY ***
+  dimensions.batteryX = display.width() - 16 - 1;
+  uint8_t BatteryIcon[16]{};
+  float battery_voltage = voltage();
+  float battery_percent = mapFloat(battery_voltage, 2.8, 4.2, 0, 100);
+  Serial.printf("Battery voltage: %.2f; percent: %.2f\n", battery_voltage, battery_percent);
+  if (battery_percent >= 66)
+  {
+    memcpy(BatteryIcon, BatteryFull, sizeof(BatteryFull));
+  }
+  else if (battery_percent >= 33)
+  {
+    memcpy(BatteryIcon, BatteryMid, sizeof(BatteryMid));
+  }
+  else
+  {
+    memcpy(BatteryIcon, BatteryLow, sizeof(BatteryLow));
+  }
+
+  display.setPartialWindow(dimensions.batteryX, dimensions.batteryY, dimensions.batteryW, dimensions.batteryH);
+  display.firstPage();
+  do
+  {
+    display.drawBitmap(dimensions.batteryX, dimensions.batteryY, BatteryIcon, dimensions.batteryW, dimensions.batteryH, GxEPD_BLACK);
+  } while (display.nextPage());
+  // *** END BATTERY ***
 
   // Pull the boundary points if we haven't calculated them already.
   if (!dimensions_calculated)
