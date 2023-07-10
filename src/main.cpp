@@ -34,6 +34,7 @@ WiFiClient client;
 #define BAT_PIN A0
 #define ADJUSTMENT 0.25 // The difference between the read voltage and the voltage as measured by a multimeter
 #define STARTUP_LED_PIN D4
+#define BATTERY_MIN_READING 3.31
 
 /**
  * Get the voltage from the onboard ADC. Returns the actual voltage.
@@ -214,7 +215,8 @@ void setup()
 
   // Connect to the events API, download everything, and draw the updates on every single refresh.
   StaticJsonDocument<768> events;
-  bool get_event_succeeded = get_events(&events);
+  float battery_voltage = voltage();
+  bool get_event_succeeded = get_events(&events, battery_voltage);
   JsonArray current = events["current"].as<JsonArray>();
   JsonArray future = events["future"].as<JsonArray>();
   const char *date = events["formattedDate"];
@@ -231,9 +233,8 @@ void setup()
   dimensions.statusAreaX = display.width() - 30;
   const uint8_t *BatteryIcon;
   const uint8_t *WiFiIcon;
-  float battery_voltage = voltage();
-  float battery_percent = mapFloat(battery_voltage, 2.8, 4.2, 0, 100);
-  Serial.printf("Battery voltage: %.2f; percent: %.2f\n", battery_voltage, battery_percent);
+  // Map percentage based on 3.31v as a minimum, and 4.2 as a maximum. Anything under 3.31 and we'll permanently sleep.
+  float battery_percent = mapFloat(battery_voltage, BATTERY_MIN_READING, 4.2, 0, 100);
 
   // Choose the right battery icon
   if (battery_percent >= 66)
@@ -262,6 +263,21 @@ void setup()
     display.drawBitmap(dimensions.statusAreaX + 1 + dimensions.wifiW + 5, dimensions.statusAreaY, BatteryIcon, dimensions.batteryW, dimensions.batteryH, GxEPD_BLACK);
   } while (display.nextPage());
   // *** END BATTERY AND WIFI ***
+
+  // If the voltage is lower than 3.31v we should clear the display completely, then put the entire thing in deep sleep
+  // indefinitely. We probably don't care about startup_data at this point.
+  if (battery_voltage < BATTERY_MIN_READING) {
+    display.setFullWindow();
+    display.firstPage();
+    do {
+      display.clearScreen();
+    } while (display.nextPage());
+
+    // long-term hibernation. At rest it will still consume something like 7mA thanks to the NodeMCU stuff, but
+    // since the display is off that should give us a good indication that we need to recharge the battery.
+    ESP.deepSleep(0);
+    return;
+  }
 
   // Only draw the date if get_events was successful
   if (get_event_succeeded) {
