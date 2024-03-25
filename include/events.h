@@ -13,8 +13,19 @@ bool get_events(StaticJsonDocument<768> *events, float voltage)
   // Assume it didn't work
   if (http.begin(client, finalUrl))
   {
+    http.setTimeout(30000);
+    unsigned long ms_start = millis();
     int httpCode = http.GET();
-    if (httpCode == 200)
+    unsigned long ms_end = millis();
+    Serial.print("Request time: ");
+    Serial.print(ms_end - ms_start);
+    Serial.println("ms");
+    if (httpCode == HTTPC_ERROR_READ_TIMEOUT)
+    {
+      Serial.print("HTTP Read Timeout");
+      return false;
+    }
+    else if (httpCode == 200)
     {
       DeserializationError error = deserializeJson(*events, http.getStream());
       if (error)
@@ -24,6 +35,10 @@ bool get_events(StaticJsonDocument<768> *events, float voltage)
       } else {
         return true;
       }
+    } else {
+      Serial.print("HTTP Connection error: ");
+      Serial.println(httpCode);
+      return false;
     }
   }
   return false;
