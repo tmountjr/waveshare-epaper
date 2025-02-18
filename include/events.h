@@ -3,15 +3,27 @@
  * @param events The pointer to the place we're storing events.
  * @returns Whether or not the GET succeeded.
  */
-bool get_events(StaticJsonDocument<768> *events, float voltage)
+bool get_events(StaticJsonDocument<768> *events, float voltage, const char* ip_addr)
 {
-  char finalUrl[46], v[5];
-  strcpy(finalUrl, MICROSERVICE_PATH);
-  sprintf(v, "%.2f", voltage);
-  strcat(finalUrl, v);
+  const int maxUrlLength = 200;
+  char finalUrl[maxUrlLength];
+  char baseUrl[100] = "http://";
+  strcat(baseUrl, ip_addr);
+  strcat(baseUrl, ":8080/events?voltage=");
+
+  char v[10];
+  dtostrf(voltage, 1, 2, v);
+
+  int len = snprintf(finalUrl, maxUrlLength, "%s%s", baseUrl, v);
+  if (len >= maxUrlLength) {
+    Serial.println("URL too long");
+    return false;
+  }
+
+  String finalUrlString = String(finalUrl);
 
   // Assume it didn't work
-  if (http.begin(client, finalUrl))
+  if (http.begin(client, finalUrlString))
   {
     http.setTimeout(30000);
     unsigned long ms_start = millis();

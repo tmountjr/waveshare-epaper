@@ -1,3 +1,4 @@
+#include <SPI.h>
 #include <string.h>
 #include <Arduino.h>
 #include <GxEPD2_BW.h>
@@ -9,10 +10,15 @@
 #include <Fonts/FreeSans9pt7b.h>
 #include <Fonts/FreeSansBold9pt7b.h>
 #include "icons.h"
+#include "SdFat.h"
+#include "sdios.h"
 #include "secrets.h"
 
 HTTPClient http;
 WiFiClient client;
+SdFs sd;
+FsFile file;
+char sd_ip_addr[16];
 
 #include "events.h"
 #include "GxEPD2_display_selection_new_style.h"
@@ -35,6 +41,8 @@ WiFiClient client;
 #define ADJUSTMENT 0.25 // The difference between the read voltage and the voltage as measured by a multimeter
 #define STARTUP_LED_PIN D4
 #define BATTERY_MIN_READING 3.31
+#define SD_CARD_CS_PIN 10
+#define SPI_SPEED SD_SCK_MHZ(50)
 
 /**
  * Get the voltage from the onboard ADC. Returns the actual voltage.
@@ -93,7 +101,31 @@ void setup()
   Serial.setTimeout(2000);
   while (!Serial)
   {
+    yield();
   }
+
+  // Read the SD card first, to get the IP address.
+  if (!sd.begin(SD_CARD_CS_PIN, SPI_SPEED))
+  {
+    Serial.println("SD card failed to initialize, aborting.");
+    return;
+  }
+  file = sd.open("test.txt", FILE_READ);
+  if (!file)
+  {
+    Serial.println("Failed to open test.txt, aborting.");
+    return;
+  }
+  int n;
+  while ((n = file.fgets(sd_ip_addr, sizeof(sd_ip_addr))) > 0)
+  {
+    if (sd_ip_addr[n - 1] == '\n')
+    {
+      sd_ip_addr[n - 1] = 0;
+    }
+  }
+  file.close();
+  sd.end();
 
   // Read in startup_data
   ESP.rtcUserMemoryRead(0, reinterpret_cast<uint32_t *>(&startup_data), sizeof(startup_data));
@@ -216,7 +248,7 @@ void setup()
   // Connect to the events API, download everything, and draw the updates on every single refresh.
   StaticJsonDocument<768> events;
   float battery_voltage = voltage();
-  bool get_event_succeeded = get_events(&events, battery_voltage);
+  bool get_event_succeeded = get_events(&events, battery_voltage, sd_ip_addr);
   JsonArray current = events["current"].as<JsonArray>();
   JsonArray future = events["future"].as<JsonArray>();
   const char *date = events["formattedDate"];
@@ -360,3 +392,7 @@ void setup()
 
 // Nothing in loop since we're not staying awake once we wake up and update the display.
 void loop() {}
+
+// TODO: QOL improvement for battery life: longer hibernation on the weekend,
+// maybe just once a day early in the morning to get the right date and catch any
+// events that are happening Monday (within 24 hours).
