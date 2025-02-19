@@ -18,7 +18,7 @@ HTTPClient http;
 WiFiClient client;
 SdFs sd;
 FsFile file;
-char sd_ip_addr[16];
+char sd_ip_addr[16] = "";
 
 #include "events.h"
 #include "GxEPD2_display_selection_new_style.h"
@@ -31,6 +31,16 @@ char sd_ip_addr[16];
 // D2 = GPIO 4  = DC    = green
 // D1 = GPIO 5  = RST   = white
 // D6 = GPIO 12 = BUSY  = purple
+//
+// BOARD OVERHEAD (L TO R, USB on R):
+// WHITE
+// GREEN
+// GREY
+// BROWN
+// YELLOW
+// PURPLE
+// BLUE
+// ORANGE
 //
 // OTHER PINS:
 // 1k pullup between 3V3 and RST to keep the screen from turning to garbage after waking up
@@ -116,16 +126,21 @@ void setup()
     Serial.println("Failed to open test.txt, aborting.");
     return;
   }
-  int n;
-  while ((n = file.fgets(sd_ip_addr, sizeof(sd_ip_addr))) > 0)
+
+  while (file.available())
   {
-    if (sd_ip_addr[n - 1] == '\n')
+    int n = file.fgets(sd_ip_addr, sizeof(sd_ip_addr));
+    if (n > 0 && sd_ip_addr[n - 1] == '\n')
+    {                           // Check for newline AND n > 0
+      sd_ip_addr[n - 1] = '\0'; // Remove newline
+    }
+    else if (n > 0)
     {
-      sd_ip_addr[n - 1] = 0;
+      sd_ip_addr[n] = '\0';
     }
   }
-  file.close();
-  sd.end();
+  file.close(); // Close file *after* you're completely done
+  sd.end();     // Close SD *after* you're completely done
 
   // Read in startup_data
   ESP.rtcUserMemoryRead(0, reinterpret_cast<uint32_t *>(&startup_data), sizeof(startup_data));

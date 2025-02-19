@@ -7,7 +7,8 @@ bool get_events(StaticJsonDocument<768> *events, float voltage, const char* ip_a
 {
   const int maxUrlLength = 200;
   char finalUrl[maxUrlLength];
-  char baseUrl[100] = "http://";
+  char baseUrl[100] = "";
+  strcat(baseUrl, "http://");
   strcat(baseUrl, ip_addr);
   strcat(baseUrl, ":8080/events?voltage=");
 
