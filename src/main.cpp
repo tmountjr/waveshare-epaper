@@ -23,14 +23,14 @@ char sd_ip_addr[16] = "";
 #include "events.h"
 #include "GxEPD2_display_selection_new_style.h"
 // PINOUT:
-// 3V3          = VCC   = grey
-// GND          = GND   = brown
-// D7 = GPIO 13 = DIN   = blue
-// D5 = GPIO 14 = CLK   = yellow
-// D8 = GPIO 15 = CS    = orange
-// D2 = GPIO 4  = DC    = green
-// D1 = GPIO 5  = RST   = white
-// D6 = GPIO 12 = BUSY  = purple
+// 3V3          = VCC  = grey
+// GND          = GND  = brown
+// D7 = GPIO 13 = DIN  = blue
+// D5 = GPIO 14 = CLK  = yellow
+// D8 = GPIO 15 = CS   = orange
+// D2 = GPIO 4  = DC   = green
+// D1 = GPIO 5  = RST  = white
+// D6 = GPIO 12 = BUSY = purple
 //
 // BOARD OVERHEAD (L TO R, USB on R):
 // WHITE
