@@ -120,10 +120,10 @@ void setup()
     Serial.println("SD card failed to initialize, aborting.");
     return;
   }
-  file = sd.open("test.txt", FILE_READ);
+  file = sd.open("ip.txt", FILE_READ);
   if (!file)
   {
-    Serial.println("Failed to open test.txt, aborting.");
+    Serial.println("Failed to open ip.txt, aborting.");
     return;
   }
 
